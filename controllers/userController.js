@@ -1,5 +1,5 @@
 // backend/controllers/userController.js
-import User from "../models/user.js";
+import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 
 // Set user role
