@@ -15,9 +15,20 @@ connectDB();
 // Middleware
 // const cors = require('cors');
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://192.168.0.116:5173"
+];
+
 app.use(cors({
-  origin: 'http://:192.168.0.116:5173',
-  credentials: true, // Allow cookies / credentials
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);  // allow non-browser requests
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error("Not allowed by CORS"), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
 }));
 
 app.use(express.json());
