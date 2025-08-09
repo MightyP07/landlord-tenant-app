@@ -76,3 +76,35 @@ export const registerUser = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// LOGIN user
+export const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // 1️⃣ Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    // 2️⃣ Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    // 3️⃣ Return user details (role included)
+    return res.json({
+      message: "Login successful",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error("❌ Login error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }};
