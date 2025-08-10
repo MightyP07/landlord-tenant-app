@@ -20,7 +20,7 @@ const allowedOrigins = [
   "http://192.168.0.116:5173",
   "https://renteaseone.vercel.app"
 ];
-];
+
 
 app.use(cors({
   origin: function(origin, callback) {
