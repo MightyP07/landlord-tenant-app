@@ -2,7 +2,11 @@ import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
       type: String,
       required: true,
     },
@@ -14,15 +18,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+       match: [/^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com)$/, "Please use a valid Gmail or Yahoo email"],
     },
     password: {
       type: String,
       required: true,
     },
+    resetCode: String,
+    resetCodeExpiry: Date,
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const User = mongoose.model('User', userSchema);
