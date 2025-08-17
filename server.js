@@ -17,7 +17,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://192.168.0.116:5173",
   "https://renteaseone.vercel.app",
-  "https://renteaseone.vercel.app"
+"https://landlord-tenant-app-frontend.vercel.app"
 ];
 
 // ✅ Logging middleware (helps debug CORS)
