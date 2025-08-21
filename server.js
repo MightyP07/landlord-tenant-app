@@ -5,6 +5,11 @@ import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
+import tenantRoutes from "./routes/tenantRoutes.js";
+
+
+// ...
+
 import { verifyTokenFromCookie } from "./middleware/verifyTokenFromCookie.js";
 
 dotenv.config();
@@ -16,8 +21,7 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://192.168.0.116:5173",
-  "https://renteaseone.vercel.app",
-"https://landlord-tenant-app-frontend.vercel.app"
+  "https://renteaseone.vercel.app"
 ];
 
 // ✅ Logging middleware (helps debug CORS)
@@ -47,6 +51,7 @@ app.use(express.json());
 // ✅ Routes
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/tenants", tenantRoutes);
 
 // ✅ Base route
 app.get("/", (req, res) => {

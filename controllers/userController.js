@@ -1,8 +1,18 @@
 // backend/controllers/userController.js
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
-import { transporter } from "../utils/nodemailer.js";
+import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
+
+// Utility: generate unique landlord code
+async function generateUniqueLandlordCode() {
+  let code, exists;
+  do {
+    code = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6 chars
+    exists = await User.exists({ landlordCode: code });
+  } while (exists);
+  return code;
+}
 
 // Utility: generate reset code
 function generateResetCode() {
@@ -57,15 +67,19 @@ export const setUserRole = async (req, res) => {
   }
 
   try {
-    const user = await User.findByIdAndUpdate(
-      id,
-      { role },
-      { new: true, runValidators: true }
-    );
-
+    const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    user.role = role;
+
+    if (role === "landlord") {
+      // generate a unique landlord code (6 characters, uppercase)
+      user.landlordCode = await generateUniqueLandlordCode();
+    }
+
+    await user.save();
 
     return res.json({
       message: "Role updated successfully",
@@ -74,7 +88,8 @@ export const setUserRole = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        landlordCode: user.landlordCode || null,
       }
     });
   } catch (err) {
@@ -88,27 +103,32 @@ export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
+    let user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+    // Backfill landlordCode if role is landlord and code is missing
+    if (user.role === "landlord" && !user.landlordCode) {
+      user.landlordCode = await generateUniqueLandlordCode();
+      await user.save();
+    }
+
+    // Populate landlord info if tenant
+    if (user.role === "tenant" && user.landlordId) {
+      user = await user.populate("landlordId", "firstName lastName email");
     }
 
     // Create JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     // Send token in HTTP-only cookie
     res.cookie("jwt", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // false in dev
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // "lax" works on localhost
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     return res.json({
@@ -118,8 +138,10 @@ export const loginUser = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+        landlordCode: user.landlordCode || null,
+        landlordId: user.landlordId || null,
+      },
     });
   } catch (error) {
     console.error("❌ Login error:", error);
@@ -127,7 +149,7 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// ✅ Forgot password (send reset code)
+// ✅ Forgot password
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -135,14 +157,21 @@ export const forgotPassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const resetCode = generateResetCode();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
     user.resetCode = resetCode;
     user.resetCodeExpiry = expiry;
     await user.save();
 
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: 465,
+      secure: true,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
+
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"Landlord App" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Your Password Reset Code",
       text: `Your password reset code is: ${resetCode}. It expires in 10 minutes.`,
@@ -162,7 +191,7 @@ export const resetPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (
       !user ||
-      user.resetCode !== code ||
+      user.resetCode !== String(code) ||
       !user.resetCodeExpiry ||
       user.resetCodeExpiry < new Date()
     ) {
@@ -179,6 +208,36 @@ export const resetPassword = async (req, res) => {
     res.json({ message: "Password reset successful" });
   } catch (error) {
     console.error("❌ Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ✅ Get current logged-in user
+export const getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user.id; // set by verifyTokenFromCookie
+    let user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Populate landlord info if tenant
+    if (user.role === "tenant" && user.landlordId) {
+      user = await user.populate("landlordId", "firstName lastName email");
+    }
+
+    return res.json({
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        landlordCode: user.landlordCode || null,
+        landlordId: user.landlordId || null,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Get current user error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
