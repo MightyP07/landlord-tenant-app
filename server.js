@@ -7,11 +7,6 @@ import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import tenantRoutes from "./routes/tenantRoutes.js";
 
-
-// ...
-
-import { verifyTokenFromCookie } from "./middleware/verifyTokenFromCookie.js";
-
 dotenv.config();
 const app = express();
 
