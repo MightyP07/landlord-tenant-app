@@ -75,7 +75,6 @@ export const setUserRole = async (req, res) => {
     user.role = role;
 
     if (role === "landlord") {
-      // generate a unique landlord code (6 characters, uppercase)
       user.landlordCode = await generateUniqueLandlordCode();
     }
 
@@ -98,7 +97,7 @@ export const setUserRole = async (req, res) => {
   }
 };
 
-// ✅ Login user
+// ✅ Login user (updated)
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -123,16 +122,18 @@ export const loginUser = async (req, res) => {
     // Create JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    // Send token in HTTP-only cookie
+    // Send token in HTTP-only cookie (for browser auth)
     res.cookie("jwt", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    // ✅ ALSO return token in response so frontend can save in localStorage
     return res.json({
       message: "Login successful",
+      token, // <---- added for localStorage
       user: {
         _id: user._id,
         firstName: user.firstName,
@@ -157,7 +158,7 @@ export const forgotPassword = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const resetCode = generateResetCode();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
 
     user.resetCode = resetCode;
     user.resetCodeExpiry = expiry;
@@ -212,15 +213,14 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ✅ Get current logged-in user
+// ✅ Get current logged-in user (reads from req.user, set by middleware)
 export const getCurrentUser = async (req, res) => {
   try {
-    const userId = req.user.id; // set by verifyTokenFromCookie
+    const userId = req.user.id;
     let user = await User.findById(userId);
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Populate landlord info if tenant
     if (user.role === "tenant" && user.landlordId) {
       user = await user.populate("landlordId", "firstName lastName email");
     }
