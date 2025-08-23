@@ -6,6 +6,8 @@ import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import tenantRoutes from "./routes/tenantRoutes.js";
+import landlordRoutes from "./routes/landlordRoutes.js";
+
 
 dotenv.config();
 const app = express();
@@ -47,6 +49,7 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/tenants", tenantRoutes);
+app.use("/api/landlord", landlordRoutes);
 
 // ✅ Base route
 app.get("/", (req, res) => {
@@ -65,7 +68,8 @@ app.post("/api/auth/logout", (req, res) => {
   res.clearCookie("jwt", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "none",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
   });
 
   res.status(200).json({ message: "Logged out successfully" });
