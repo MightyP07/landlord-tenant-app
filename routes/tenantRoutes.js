@@ -2,6 +2,7 @@
 import express from "express";
 import User from "../models/User.js";
 import { verifyTokenFromCookie } from "../middleware/authMiddleware.js";
+import { createComplaint } from "../controllers/complaintController.js";   
 
 const router = express.Router();
 
@@ -38,5 +39,7 @@ router.post("/connect", verifyTokenFromCookie, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+router.post("/complaints", verifyTokenFromCookie, createComplaint);
 
 export default router;
