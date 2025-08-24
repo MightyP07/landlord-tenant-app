@@ -1,10 +1,14 @@
 import Complaint from "../models/Complaint.js";
 import User from "../models/User.js";
 
-// POST /api/tenants/complaints
 export const createComplaint = async (req, res) => {
   try {
     const { tenantId, landlordId, title, description } = req.body;
+
+    // Verify tenant matches logged-in user
+    if (req.user._id.toString() !== tenantId) {
+      return res.status(403).json({ message: "You can only log complaints for yourself" });
+    }
 
     if (!tenantId || !landlordId || !title || !description) {
       return res.status(400).json({ message: "All fields are required" });
