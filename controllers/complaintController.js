@@ -16,15 +16,15 @@ export const createComplaint = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // ✅ Fetch tenant and landlord
-    const tenant = await User.findById(tenantId);
-    const landlord = await User.findById(landlordId);
-    if (!tenant || !landlord) {
-      return res.status(404).json({ message: "Tenant or landlord not found" });
+    // ✅ Fetch tenant
+    const tenant = await User.findById(tenantId).populate("landlordId");
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
     }
 
-    // ✅ Check if tenant is still connected to this landlord
-    if (!tenant.landlordId || tenant.landlordId.toString() !== landlordId) {
+    // ✅ Check if tenant is connected to landlord
+    // Convert both to strings to avoid ObjectId vs string mismatch
+    if (!tenant.landlordId || tenant.landlordId._id.toString() !== landlordId.toString()) {
       return res.status(403).json({
         message: "You are no longer connected to this landlord. Cannot log complaint."
       });
