@@ -4,7 +4,13 @@ import User from "../models/User.js";
 
 export const verifyTokenFromCookie = async (req, res, next) => {
   try {
-    const token = req.cookies?.jwt;
+    let token = req.cookies?.jwt;
+
+    if (!token) {
+      const auth = req.headers.authorization || "";
+      if (auth.startsWith("Bearer ")) token = auth.slice(7);
+    }
+
     if (!token) {
       return res.status(401).json({ message: "Unauthorized: No token found" });
     }
@@ -17,17 +23,14 @@ export const verifyTokenFromCookie = async (req, res, next) => {
     const user = await User.findById(decoded.id).select(
       "_id firstName lastName email role landlordCode landlordId"
     );
-
     if (!user) {
       return res.status(401).json({ message: "Unauthorized: User not found" });
     }
 
-    // Attach user object to request
     req.user = user.toObject();
-
     next();
   } catch (err) {
-    console.error("Auth error:", err);
-    return res.status(401).json({ message: "Unauthorized: Token verification failed" });
+    console.error("❌ Token verification failed:", err);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
