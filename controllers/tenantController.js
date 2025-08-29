@@ -1,11 +1,11 @@
 // controllers/tenantController.js
 import User from "../models/User.js";
 
+// controllers/tenantController.js
 export const connectLandlord = async (req, res) => {
   try {
     const { tenantId, landlordCode } = req.body;
 
-    // Validate tenant matches auth (optional but safer)
     if (req.user._id.toString() !== tenantId) {
       return res.status(403).json({ message: "Forbidden" });
     }
@@ -15,9 +15,9 @@ export const connectLandlord = async (req, res) => {
 
     const tenant = await User.findByIdAndUpdate(
       tenantId,
-      { landlordId: landlord._id },
+      { landlordId: landlord._id, connectedOn: new Date() }, // <-- save connectedOn
       { new: true }
-    ).select("_id firstName lastName email role landlordId");
+    ).select("_id firstName lastName email role landlordId connectedOn");
 
     return res.json({ 
       message: "Connected successfully",

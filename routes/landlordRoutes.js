@@ -9,7 +9,7 @@ const router = express.Router();
 // GET all complaints for this landlord
 router.get("/complaints/:landlordId", getComplaints);
 
-// GET /api/landlords/tenants
+// GET /api/landlord/tenants
 router.get("/tenants", verifyTokenFromCookie, async (req, res) => {
   try {
     // Only landlords allowed
@@ -18,7 +18,7 @@ router.get("/tenants", verifyTokenFromCookie, async (req, res) => {
     }
 
     const tenants = await User.find({ landlordId: req.user._id }).select(
-      "firstName lastName email"
+      "firstName lastName email connectedOn"
     );
 
     res.json({ tenants });

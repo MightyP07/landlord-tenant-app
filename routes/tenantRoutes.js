@@ -29,7 +29,7 @@ router.post("/connect", verifyTokenFromCookie, async (req, res) => {
     // Update tenant's landlordId
     const tenant = await User.findByIdAndUpdate(
       req.user._id,
-      { landlordId: landlord._id },
+      { landlordId: landlord._id, connectedOn: new Date() }, // <-- set current date
       { new: true }
     ).populate("landlordId", "firstName lastName email");
 

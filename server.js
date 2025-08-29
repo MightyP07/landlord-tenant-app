@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import tenantRoutes from "./routes/tenantRoutes.js";
 import landlordRoutes from "./routes/landlordRoutes.js";
+import webpush from "web-push";
 
 
 dotenv.config();
@@ -81,3 +82,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server is running on http://0.0.0.0:${PORT}`);
 });
+
+
