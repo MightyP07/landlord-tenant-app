@@ -7,7 +7,8 @@ import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import tenantRoutes from "./routes/tenantRoutes.js";
 import landlordRoutes from "./routes/landlordRoutes.js";
-import webpush from "web-push";
+import receiptRoutes from "./routes/receipts.js";
+
 
 
 dotenv.config();
@@ -51,6 +52,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/landlord", landlordRoutes);
+app.use("/api/receipts", receiptRoutes);
+app.use("/uploads", express.static("uploads"));
 
 // ✅ Base route
 app.get("/", (req, res) => {
