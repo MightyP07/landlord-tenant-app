@@ -1,13 +1,13 @@
 // backend/routes/tenantRoutes.js
 import express from "express";
 import User from "../models/User.js";
-import { verifyTokenFromCookie } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 import { createComplaint } from "../controllers/complaintController.js";   
 
 const router = express.Router();
 
 // POST /api/tenants/connect
-router.post("/connect", verifyTokenFromCookie, async (req, res) => {
+router.post("/connect", verifyToken, async (req, res) => {
   try {
     const { landlordCode } = req.body;
 
@@ -40,6 +40,6 @@ router.post("/connect", verifyTokenFromCookie, async (req, res) => {
   }
 });
 
-router.post("/complaints", verifyTokenFromCookie, createComplaint);
+router.post("/complaints", verifyToken, createComplaint);
 
 export default router;

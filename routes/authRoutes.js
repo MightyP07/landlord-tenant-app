@@ -1,7 +1,7 @@
 // routes/authRoutes.js
 import express from "express";
 import { loginUser, registerUser, forgotPassword, resetPassword, getCurrentUser } from "../controllers/userController.js";
-import { verifyTokenFromCookie } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -18,6 +18,6 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 
 // Get current authenticated user
-router.get("/me", verifyTokenFromCookie, getCurrentUser);
+router.get("/me", verifyToken, getCurrentUser);
 
 export default router;

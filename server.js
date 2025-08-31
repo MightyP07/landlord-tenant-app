@@ -1,15 +1,13 @@
+// server.js (or index.js — replace your current main file)
 import express from "express";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
-import cookieParser from "cookie-parser";
 import tenantRoutes from "./routes/tenantRoutes.js";
 import landlordRoutes from "./routes/landlordRoutes.js";
-import receiptRoutes from "./routes/receipts.js";
-
-
+import receiptRoutes from "./routes/receiptRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -30,7 +28,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ CORS setup
+// ✅ CORS setup: cookie-free (no credentials required)
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -40,11 +38,11 @@ app.use(
       }
       return callback(new Error("Not allowed by CORS"));
     },
-    credentials: true,
+    credentials: false, // no cookies used for auth in this flow
   })
 );
 
-app.use(cookieParser());
+// No cookieParser() — not needed for token-in-header approach
 app.use(express.json());
 
 // ✅ Routes
@@ -66,24 +64,15 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: err.message || "Internal Server Error" });
 });
 
-//✅ Logout
+// ✅ Logout endpoint (token-based flows typically just remove token client-side)
+// keep for compatibility — it simply responds success
 app.post("/api/auth/logout", (req, res) => {
-  // Clear auth/session cookie
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    path: "/",
-  });
-
+  // In token-only flow, logout is handled client-side (remove token).
   res.status(200).json({ message: "Logged out successfully" });
 });
-
 
 // ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server is running on http://0.0.0.0:${PORT}`);
 });
-
-

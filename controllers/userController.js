@@ -19,6 +19,11 @@ function generateResetCode() {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit string
 }
 
+// Helper: createJWT
+function createToken(userId) {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+}
+
 // ✅ Register new user
 export const registerUser = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -97,7 +102,7 @@ export const setUserRole = async (req, res) => {
   }
 };
 
-// ✅ Login user (updated)
+// ✅ Login user (cookie-free: return token in JSON only)
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -120,20 +125,12 @@ export const loginUser = async (req, res) => {
     }
 
     // Create JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = createToken(user._id);
 
-    // Send token in HTTP-only cookie (for browser auth)
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // ✅ ALSO return token in response so frontend can save in localStorage
+    // Return token + user in JSON (no cookie)
     return res.json({
       message: "Login successful",
-      token, // <---- added for localStorage
+      token,
       user: {
         _id: user._id,
         firstName: user.firstName,

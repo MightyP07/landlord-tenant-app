@@ -1,7 +1,7 @@
 // backend/routes/landlordRoutes.js
 import express from "express";
 import User from "../models/User.js";
-import { verifyTokenFromCookie } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 import { getComplaints } from "../controllers/landlordController.js";
 
 const router = express.Router();
@@ -10,7 +10,7 @@ const router = express.Router();
 router.get("/complaints/:landlordId", getComplaints);
 
 // GET /api/landlord/tenants
-router.get("/tenants", verifyTokenFromCookie, async (req, res) => {
+router.get("/tenants", verifyToken, async (req, res) => {
   try {
     // Only landlords allowed
     if (req.user.role !== "landlord") {
@@ -29,7 +29,7 @@ router.get("/tenants", verifyTokenFromCookie, async (req, res) => {
 });
 
 // GET /api/landlords/complaints
-router.get("/complaints", verifyTokenFromCookie, async (req, res) => {
+router.get("/complaints", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
       return res.status(403).json({ message: "Access denied" });
@@ -47,7 +47,7 @@ router.get("/complaints", verifyTokenFromCookie, async (req, res) => {
 });
 
 // DELETE /api/landlords/tenants/:tenantId
-router.delete("/tenants/:tenantId", verifyTokenFromCookie, async (req, res) => {
+router.delete("/tenants/:tenantId", verifyToken, async (req, res) => {
   try {
     // Only landlords allowed
     if (req.user.role !== "landlord") {

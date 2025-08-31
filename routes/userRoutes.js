@@ -2,7 +2,7 @@
 import express from "express";
 import User from "../models/User.js"; // ✅ import User
 import { getCurrentUser, registerUser, setUserRole } from "../controllers/userController.js";
-import { verifyTokenFromCookie } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -13,6 +13,6 @@ router.post("/register", registerUser);
 router.put("/set-role/:id", setUserRole);
 
 // GET /api/users/me
-router.get("/me", verifyTokenFromCookie, getCurrentUser);
+router.get("/me", verifyToken, getCurrentUser);
 
 export default router;
