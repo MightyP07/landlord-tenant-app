@@ -3,6 +3,7 @@ import express from "express";
 import User from "../models/User.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getComplaints } from "../controllers/landlordController.js";
+import Complaint from "../models/Complaint.js";
 
 const router = express.Router();
 
