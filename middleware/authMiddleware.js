@@ -1,4 +1,3 @@
-// middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -24,3 +23,6 @@ export const verifyToken = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
   }
 };
+
+// ✅ Export as `protect` so routes can use it
+export const protect = verifyToken;

@@ -8,9 +8,12 @@ import authRoutes from "./routes/authRoutes.js";
 import tenantRoutes from "./routes/tenantRoutes.js";
 import landlordRoutes from "./routes/landlordRoutes.js";
 import receiptRoutes from "./routes/receiptRoutes.js";
+import path from "path"
+import paymentsRoutes from "./routes/payments.js"
 
 dotenv.config();
 const app = express();
+const __dirname = path.resolve();
 
 // ✅ Connect to MongoDB
 connectDB();
@@ -52,6 +55,10 @@ app.use("/api/tenants", tenantRoutes);
 app.use("/api/landlord", landlordRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/uploads/profile-photos", express.static(path.join(__dirname, "uploads/profile-photos")));
+app.use("/api/payments", paymentsRoutes);
+
+// app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // ✅ Base route
 app.get("/", (req, res) => {

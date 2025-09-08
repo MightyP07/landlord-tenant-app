@@ -38,3 +38,28 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter,
 });
+
+const photosFolder = path.join("uploads", "profile-photos");
+fs.mkdirSync(photosFolder, { recursive: true });
+
+const allowedPhotoTypes = /jpg|jpeg|png/;
+
+const photosStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, photosFolder),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = req.user._id + "-" + Date.now() + path.extname(file.originalname);
+    cb(null, uniqueSuffix);
+  },
+});
+
+const photosFileFilter = (req, file, cb) => {
+  const extname = allowedPhotoTypes.test(path.extname(file.originalname).toLowerCase());
+  if (extname) cb(null, true);
+  else cb(new Error("Only JPG/PNG files are allowed!"));
+};
+
+export const uploadProfilePhoto = multer({
+  storage: photosStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: photosFileFilter,
+});

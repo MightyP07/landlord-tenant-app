@@ -11,6 +11,14 @@ const userSchema = new mongoose.Schema({
   connectedOn: { type: Date, default: null }, // <-- add this
   resetCode: { type: String },
   resetCodeExpiry: { type: Date },
+  photo: { type: String, default: null },
+  bankDetails: { type: mongoose.Schema.Types.ObjectId, ref: "BankDetails" },
+pendingRent: {
+  amount: { type: Number },
+  setBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date },
+},
+
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);

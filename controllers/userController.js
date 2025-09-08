@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
+import BankDetails from "../models/BankDetails.js";
 
 // Utility: generate unique landlord code
 async function generateUniqueLandlordCode() {
@@ -28,6 +29,17 @@ function createToken(userId) {
 export const registerUser = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
+   // Capitalize first letter of each word in firstName and lastName
+  const capitalize = (str) =>
+    str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+
+const formattedFirstName = capitalize(firstName.trim());
+const formattedLastName = capitalize(lastName.trim());
+
+
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -36,13 +48,14 @@ export const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      role: null // Set role later in ChooseRole step
-    });
+const newUser = new User({
+  firstName: formattedFirstName,
+  lastName: formattedLastName,
+  email: email.trim(),
+  password: hashedPassword,
+  role: null
+});
+
 
     const savedUser = await newUser.save();
 
@@ -102,7 +115,7 @@ export const setUserRole = async (req, res) => {
   }
 };
 
-// ✅ Login user (cookie-free: return token in JSON only)
+// ✅ Login user
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -113,21 +126,33 @@ export const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    // Backfill landlordCode if role is landlord and code is missing
+    // Ensure landlord has a code
     if (user.role === "landlord" && !user.landlordCode) {
       user.landlordCode = await generateUniqueLandlordCode();
       await user.save();
     }
 
-    // Populate landlord info if tenant
+    // Tenant: populate landlord + bank details
+    let bankDetails = null;
     if (user.role === "tenant" && user.landlordId) {
       user = await user.populate("landlordId", "firstName lastName email");
+      bankDetails = await BankDetails.findOne({ landlordId: user.landlordId._id })
+        .select("bankName accountName accountNumber");
+
+      if (bankDetails) {
+        user.landlordId = {
+          ...user.landlordId.toObject(),
+          bankDetails: {
+            bankName: bankDetails.bankName,
+            accountName: bankDetails.accountName,
+            accountNumber: bankDetails.accountNumber,
+          },
+        };
+      }
     }
 
-    // Create JWT
     const token = createToken(user._id);
 
-    // Return token + user in JSON (no cookie)
     return res.json({
       message: "Login successful",
       token,
@@ -137,6 +162,7 @@ export const loginUser = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        photo: user.photo ? `${process.env.BACKEND_URL}${user.photo}` : null,
         landlordCode: user.landlordCode || null,
         landlordId: user.landlordId || null,
       },
@@ -210,16 +236,28 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ✅ Get current logged-in user (reads from req.user, set by middleware)
+// ✅ Get current user
 export const getCurrentUser = async (req, res) => {
   try {
     const userId = req.user.id;
     let user = await User.findById(userId);
-
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.role === "tenant" && user.landlordId) {
       user = await user.populate("landlordId", "firstName lastName email");
+      const myBankDetails = await BankDetails.findOne({ landlordId: user.landlordId._id })
+        .select("bankName accountName accountNumber");
+
+      if (myBankDetails) {
+        user.landlordId = {
+          ...user.landlordId.toObject(),
+          bankDetails: {
+            bankName: myBankDetails.bankName,
+            accountName: myBankDetails.accountName,
+            accountNumber: myBankDetails.accountNumber,
+          },
+        };
+      }
     }
 
     return res.json({
@@ -229,12 +267,33 @@ export const getCurrentUser = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         role: user.role,
+        photo: user.photo ? `${process.env.BACKEND_URL}${user.photo}` : null,
         landlordCode: user.landlordCode || null,
         landlordId: user.landlordId || null,
       },
     });
   } catch (err) {
     console.error("❌ Get current user error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const uploadProfilePhotoController = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Save the photo path relative to backend
+    user.photo = `/uploads/profile-photos/${req.file.filename}`;
+    await user.save();
+
+    // Send full URL to frontend
+    const fullUrl = `${process.env.BACKEND_URL}${user.photo}`; // e.g., http://localhost:5000/uploads/...
+    res.json({ message: "Photo uploaded successfully", photoUrl: fullUrl });
+  } catch (err) {
+    console.error("❌ Upload photo error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
