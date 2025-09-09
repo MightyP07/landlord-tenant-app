@@ -9,12 +9,6 @@ import { uploadProfilePhotoController } from "../controllers/userController.js";
 
 const router = express.Router();
 
-// Register new user
-router.post("/register", registerUser);
-
-// Update user role
-router.put("/set-role/:id", setUserRole);
-
 // GET /api/users/me
 router.get("/me", verifyToken, getCurrentUser);
 

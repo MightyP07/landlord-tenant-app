@@ -1,12 +1,12 @@
 // backend/routes/payments.js
 import express from "express";
 import User from "../models/User.js";
-import PaystackReceipt from "../models/PaystackReceipt.js";
+import Receipt from "../models/Receipt.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import { notifyUser } from "../utils/notifications.js";
 
 const router = express.Router();
 
-// ✅ POST /api/payments/verify — verify a payment and save receipt
 router.post("/verify", verifyToken, async (req, res) => {
   const { reference } = req.body;
   if (!reference) return res.status(400).json({ message: "Reference missing" });
@@ -16,45 +16,49 @@ router.post("/verify", verifyToken, async (req, res) => {
 
     const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
     });
 
     const data = await response.json();
     if (!data.status) return res.status(400).json({ message: "Payment verification failed" });
 
-    const tenant = await User.findById(req.user._id);
+    const tenant = await User.findById(req.user._id).populate("landlordId");
     if (!tenant) return res.status(404).json({ message: "User not found" });
 
-    // Save Paystack receipt
-    const receipt = new PaystackReceipt({
+    // Save unified receipt
+    const receipt = await Receipt.create({
       user: tenant._id,
       amount: data.data.amount / 100,
       reference: data.data.reference,
       paidAt: data.data.paid_at,
       channel: data.data.channel,
       gatewayResponse: data.data.gateway_response,
+      uploadedAt: new Date(),
     });
 
-    await receipt.save();
-
-    // Clear pending rent
+    // Clear tenant's pending rent
     tenant.pendingRent = null;
     await tenant.save();
 
-    res.json({ message: "Payment verified successfully", receipt });
+    // 🔔 Notify landlord if linked
+    if (tenant.landlordId) {
+      const landlord = tenant.landlordId;
+      await notifyUser(
+        landlord._id,
+        `💰 Tenant ${tenant.fullName} has paid ₦${data.data.amount / 100}. Reference: ${data.data.reference}`
+      );
+    }
+
+    res.json({ message: "Payment verified and receipt saved", receipt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error during verification" });
   }
 });
 
-// ✅ GET /api/payments/my — fetch tenant's payment history
 router.get("/my", verifyToken, async (req, res) => {
   try {
-    const receipts = await PaystackReceipt.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const receipts = await Receipt.find({ user: req.user._id }).sort({ uploadedAt: -1 });
     res.json({ receipts });
   } catch (err) {
     console.error(err);

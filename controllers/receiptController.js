@@ -28,7 +28,6 @@ export const uploadReceipt = async (req, res) => {
   }
 };
 
-// Landlord fetches all receipts
 export const getAllReceipts = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "landlord") {
@@ -36,9 +35,8 @@ export const getAllReceipts = async (req, res) => {
     }
 
     const receipts = await Receipt.find()
-      .populate("user", "fullName email") // make sure "fullName" exists in your User model
+      .populate("user", "firstName lastName email") // populate tenant info
       .sort({ uploadedAt: -1 });
-      console.log("📦 Receipts found:", receipts.length);
 
     res.json(receipts);
   } catch (err) {

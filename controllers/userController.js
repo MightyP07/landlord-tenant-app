@@ -27,18 +27,22 @@ function createToken(userId) {
 
 // ✅ Register new user
 export const registerUser = async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
+  const { firstName, lastName, email, password, role } = req.body;
 
-   // Capitalize first letter of each word in firstName and lastName
+  // Validate role
+  if (!role || !["tenant", "landlord"].includes(role)) {
+    return res.status(400).json({ message: "Role is required and must be tenant or landlord" });
+  }
+
+  // Capitalize names
   const capitalize = (str) =>
     str
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(" ");
 
-const formattedFirstName = capitalize(firstName.trim());
-const formattedLastName = capitalize(lastName.trim());
-
+  const formattedFirstName = capitalize(firstName.trim());
+  const formattedLastName = capitalize(lastName.trim());
 
   try {
     const existingUser = await User.findOne({ email });
@@ -48,14 +52,18 @@ const formattedLastName = capitalize(lastName.trim());
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-const newUser = new User({
-  firstName: formattedFirstName,
-  lastName: formattedLastName,
-  email: email.trim(),
-  password: hashedPassword,
-  role: null
-});
+    const newUser = new User({
+      firstName: formattedFirstName,
+      lastName: formattedLastName,
+      email: email.trim(),
+      password: hashedPassword,
+      role,
+    });
 
+    // If landlord → generate code immediately
+    if (role === "landlord") {
+      newUser.landlordCode = await generateUniqueLandlordCode();
+    }
 
     const savedUser = await newUser.save();
 
@@ -66,8 +74,9 @@ const newUser = new User({
         firstName: savedUser.firstName,
         lastName: savedUser.lastName,
         email: savedUser.email,
-        role: savedUser.role
-      }
+        role: savedUser.role,
+        landlordCode: savedUser.landlordCode || null,
+      },
     });
   } catch (error) {
     console.error("❌ Registration error:", error);

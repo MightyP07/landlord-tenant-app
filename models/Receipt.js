@@ -1,11 +1,14 @@
-// backend/models/Receipt.js
 import mongoose from "mongoose";
 
 const receiptSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  originalName: { type: String, required: true },  // e.g. "rent.pdf"
-  filename: { type: String, required: true },      // stored filename from Multer
-  path: { type: String, required: true },
+  amount: { type: Number, required: true },           // payment amount
+  reference: { type: String },                        // Paystack reference
+  channel: { type: String },                          // Paystack channel
+  gatewayResponse: { type: String },                 // Paystack response
+  originalName: { type: String },                    // optional if file exists
+  filename: { type: String },                        // optional if file exists
+  path: { type: String },                             // optional if file exists
   mimetype: { type: String },
   size: { type: Number },
   uploadedAt: { type: Date, default: Date.now },

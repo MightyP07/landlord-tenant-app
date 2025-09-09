@@ -14,11 +14,13 @@ const userSchema = new mongoose.Schema({
   photo: { type: String, default: null },
   bankDetails: { type: mongoose.Schema.Types.ObjectId, ref: "BankDetails" },
 pendingRent: {
-  amount: { type: Number },
-  setBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  createdAt: { type: Date },
+  type: {
+    amount: { type: Number },
+    setBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date },
+  },
+  default: null,
 },
-
 }, { timestamps: true });
 
 export default mongoose.model("User", userSchema);
