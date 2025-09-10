@@ -7,6 +7,7 @@ import { notifyUser } from "../utils/notifications.js";
 
 const router = express.Router();
 
+// backend/routes/payments.js
 router.post("/verify", verifyToken, async (req, res) => {
   const { reference } = req.body;
   if (!reference) return res.status(400).json({ message: "Reference missing" });
@@ -25,10 +26,18 @@ router.post("/verify", verifyToken, async (req, res) => {
     const tenant = await User.findById(req.user._id).populate("landlordId");
     if (!tenant) return res.status(404).json({ message: "User not found" });
 
-    // Save unified receipt
+    // 🔹 Calculate breakdown
+    const totalPaid = data.data.amount / 100; // Paystack sends in kobo
+    const rentAmount = tenant.pendingRent?.amount ?? totalPaid; // fallback
+    const serviceFee = parseFloat((totalPaid - rentAmount).toFixed(2));
+
+    // Save unified receipt with breakdown
     const receipt = await Receipt.create({
       user: tenant._id,
-      amount: data.data.amount / 100,
+      rentAmount,       // keep rent as original
+      serviceFee,               // your 3%
+      totalPaid,    
+      amount: totalPaid,            // sum for clarity
       reference: data.data.reference,
       paidAt: data.data.paid_at,
       channel: data.data.channel,
@@ -40,12 +49,11 @@ router.post("/verify", verifyToken, async (req, res) => {
     tenant.pendingRent = null;
     await tenant.save();
 
-    // 🔔 Notify landlord if linked
+    // Notify landlord
     if (tenant.landlordId) {
-      const landlord = tenant.landlordId;
       await notifyUser(
-        landlord._id,
-        `💰 Tenant ${tenant.fullName} has paid ₦${data.data.amount / 100}. Reference: ${data.data.reference}`
+        tenant.landlordId._id,
+        `💰 Tenant ${tenant.firstName} paid ₦${rentAmount} + ₦${serviceFee} service fee. Ref: ${data.data.reference}`
       );
     }
 

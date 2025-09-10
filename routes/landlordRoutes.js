@@ -163,7 +163,17 @@ router.post("/tenants/:tenantId/set-rent", verifyToken, async (req, res) => {
       return res.status(403).json({ message: "Tenant does not belong to you" });
     }
 
-    tenant.pendingRent = { amount, _id: new Date().getTime().toString() }; // simple unique id
+     // ✅ Add 3% service fee
+    const serviceFee = Math.round(amount * 0.03);
+    const totalAmount = amount + serviceFee;
+
+    tenant.pendingRent = {
+      amount,
+      serviceFee,
+      total: totalAmount,
+      setBy: req.user._id,
+      createdAt: new Date(),
+    };
     await tenant.save();
 
     res.json({ message: "Rent set successfully", tenant });

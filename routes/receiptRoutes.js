@@ -36,32 +36,58 @@ router.get("/download/:id", verifyToken, async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename=Receipt-${receipt._id}.pdf`);
     res.setHeader("Content-Type", "application/pdf");
 
-    // Create a new PDF document
+    // Create PDF document
     const doc = new PDFDocument({ margin: 50 });
     doc.pipe(res);
 
-    // PDF content
+    // HEADER
     doc
-      .fontSize(20)
-      .text("🏠 Tenant Payment Receipt", { align: "center" })
-      .moveDown();
+      .fillColor("#004aad")
+      .fontSize(24)
+      .text("Tenant Payment Receipt", { align: "center" })
+      .moveDown(0.5);
+
+    // TENANT INFO
+    doc
+      .fillColor("black")
+      .fontSize(12)
+      .text(`Tenant Name: ${receipt.user.firstName} ${receipt.user.lastName}`)
+      .text(`Email: ${receipt.user.email || "N/A"}`)
+      .text(`Paid At: ${new Date(receipt.paidAt || receipt.uploadedAt).toLocaleString()}`)
+      .moveDown(0.5);
+
+    // Divider
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor("#aaaaaa").stroke().moveDown(0.5);
+
+    // PAYMENT DETAILS BOX
+    const startY = doc.y;
+    doc.rect(50, startY, 500, 100).stroke("#004aad"); // box border
 
     doc
       .fontSize(14)
-      .text(`Tenant Name: ${receipt.user.firstName} ${receipt.user.lastName}`)
-      .text(`Email: ${receipt.user.email || "N/A"}`)
-      .text(`Amount Paid: ₦${receipt.amount || "N/A"}`)
-      .text(`Reference: ${receipt.reference || "N/A"}`)
-      .text(`Paid At: ${new Date(receipt.paidAt || receipt.uploadedAt).toLocaleString()}`)
-      .text(`Payment Channel: ${receipt.channel || "N/A"}`)
-      .text(`Gateway Response: ${receipt.gatewayResponse || "N/A"}`)
-      .moveDown();
+      .fillColor("#004aad")
+      .text("Payment Details", 55, startY + 5, { underline: true });
 
     doc
       .fontSize(12)
-      .text("Thank you for using our platform.", { align: "center" });
+      .fillColor("black")
+      .text(`Rent Amount: N${receipt.rentAmount?.toLocaleString() || "N/A"}`, 55, startY + 30)
+      .text(`Service Fee (3%): N${receipt.serviceFee?.toLocaleString() || "N/A"}`, 55, startY + 50)
+      .text(`Total Paid: N${receipt.totalPaid?.toLocaleString() || receipt.amount?.toLocaleString() || "N/A"}`, 55, startY + 70)
+      .text(`Reference: ${receipt.reference || "N/A"}`, 300, startY + 30)
+      .text(`Payment Channel: ${receipt.channel || "N/A"}`, 300, startY + 50)
+      .text(`Gateway Response: ${receipt.gatewayResponse || "N/A"}`, 300, startY + 70)
+      .moveDown(6);
 
-    doc.end(); // Finalize PDF and send
+    // FOOTER
+    doc
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Thank you for using our platform.", { align: "center" })
+      .moveDown(0.2)
+      .text("This is an automatically generated receipt.", { align: "center" });
+
+    doc.end();
   } catch (err) {
     console.error("❌ PDF Download error:", err);
     res.status(500).json({ message: "❌ Failed to generate PDF receipt." });
