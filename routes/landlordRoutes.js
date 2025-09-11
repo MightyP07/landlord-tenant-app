@@ -77,7 +77,7 @@ router.get("/tenants", verifyToken, async (req, res) => {
     }
 
     const tenants = await User.find({ landlordId: req.user._id }).select(
-      "firstName lastName email connectedOn"
+      "firstName lastName email connectedOn photo"
     );
 
     res.json({ tenants });

@@ -144,7 +144,7 @@ export const loginUser = async (req, res) => {
     // Tenant: populate landlord + bank details
     let bankDetails = null;
     if (user.role === "tenant" && user.landlordId) {
-      user = await user.populate("landlordId", "firstName lastName email");
+      user = await user.populate("landlordId", "firstName lastName email photo");
       bankDetails = await BankDetails.findOne({ landlordId: user.landlordId._id })
         .select("bankName accountName accountNumber");
 
@@ -253,7 +253,7 @@ export const getCurrentUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.role === "tenant" && user.landlordId) {
-      user = await user.populate("landlordId", "firstName lastName email");
+      user = await user.populate("landlordId", "firstName lastName email photo");
       const myBankDetails = await BankDetails.findOne({ landlordId: user.landlordId._id })
         .select("bankName accountName accountNumber");
 
