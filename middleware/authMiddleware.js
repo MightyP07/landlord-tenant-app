@@ -1,3 +1,4 @@
+// middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -24,5 +25,20 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
-// ✅ Export as `protect` so routes can use it
+// ✅ Shortcut for routes that use `protect`
 export const protect = verifyToken;
+
+// ✅ Role-specific middleware
+export const landlordOnly = (req, res, next) => {
+  if (req.user && req.user.role === "landlord") {
+    return next();
+  }
+  return res.status(403).json({ message: "Access denied: Landlord only" });
+};
+
+export const tenantOnly = (req, res, next) => {
+  if (req.user && req.user.role === "tenant") {
+    return next();
+  }
+  return res.status(403).json({ message: "Access denied: Tenant only" });
+};

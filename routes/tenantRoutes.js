@@ -1,7 +1,9 @@
 // backend/routes/tenantRoutes.js
 import express from "express";
+import path from "path";
+import fs from "fs";
 import User from "../models/User.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken, tenantOnly } from "../middleware/authMiddleware.js";
 import { createComplaint } from "../controllers/complaintController.js";
 import Receipt from "../models/Receipt.js";
 import BankDetails from "../models/BankDetails.js";
@@ -9,7 +11,10 @@ import { getTenantProfile } from "../controllers/tenantController.js";
 
 const router = express.Router();
 
-// POST /api/tenants/connect
+/**
+ * POST /api/tenants/connect
+ * Connect tenant to landlord using landlord code
+ */
 router.post("/connect", verifyToken, async (req, res) => {
   try {
     const { landlordCode } = req.body;
@@ -62,10 +67,16 @@ router.post("/connect", verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/tenants/profile
+/**
+ * GET /api/tenants/profile
+ * Fetch tenant profile
+ */
 router.get("/profile", verifyToken, getTenantProfile);
 
-// GET /api/tenants/me
+/**
+ * GET /api/tenants/me
+ * Fetch logged-in tenant info
+ */
 router.get("/me", verifyToken, async (req, res) => {
   try {
     const tenant = await User.findById(req.user._id).populate("landlordId", "firstName lastName email");
@@ -106,10 +117,16 @@ router.get("/me", verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/tenants/complaints
+/**
+ * POST /api/tenants/complaints
+ * Submit a complaint
+ */
 router.post("/complaints", verifyToken, createComplaint);
 
-// GET /api/tenants/receipts
+/**
+ * GET /api/tenants/receipts
+ * Get tenant payment receipts
+ */
 router.get("/receipts", verifyToken, async (req, res) => {
   try {
     const receipts = await Receipt.find({ user: req.user._id }).sort({ uploadedAt: -1 });
@@ -120,7 +137,10 @@ router.get("/receipts", verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/tenants/remind-rent
+/**
+ * GET /api/tenants/remind-rent
+ * Aggressive rent reminder
+ */
 router.get("/remind-rent", verifyToken, async (req, res) => {
   try {
     const tenant = await User.findById(req.user._id);
@@ -130,18 +150,20 @@ router.get("/remind-rent", verifyToken, async (req, res) => {
       return res.json({ message: "✅ You have already paid your rent for this cycle!" });
     }
 
-    // Trigger aggressive alarm
     res.json({
       message: `🔥 Rent reminder: ₦${tenant.pendingRent.amount} is due! Pay now!`,
       pendingRent: tenant.pendingRent,
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Rent reminder error:", err);
     res.status(500).json({ message: "Server error checking rent" });
   }
 });
 
-// ===== NEW: Trigger tenant alarm immediately =====
+/**
+ * POST /api/tenants/:tenantId/trigger-alarm
+ * Trigger alarm for tenant (push/popup)
+ */
 router.post("/:tenantId/trigger-alarm", verifyToken, async (req, res) => {
   try {
     const tenant = await User.findById(req.params.tenantId);
@@ -152,12 +174,40 @@ router.post("/:tenantId/trigger-alarm", verifyToken, async (req, res) => {
       body: `🔥 Rent due: ₦${tenant.pendingRent?.amount || 0}`,
     };
 
-    // Optional: if you have a service worker push setup, you can send a real push here
-    // For now, just return payload so frontend SW/client can handle it
     res.json({ message: "Alarm trigger sent", payload });
   } catch (err) {
     console.error("❌ Trigger alarm error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * GET /api/tenants/rental-info
+ * Tenant can download rental agreement
+ */
+/**
+ * GET /api/tenants/rental-info
+ * Tenant can download rental agreement
+ */
+router.get("/rental-info", verifyToken, tenantOnly, async (req, res) => {
+  try {
+    const tenant = await User.findById(req.user._id);
+
+    if (!tenant || tenant.role !== "tenant") {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+
+    if (!tenant.rentalAgreement) {
+      return res.status(404).json({ message: "No rental agreement uploaded" });
+    }
+
+    // ✅ instead of forcing download, return a public URL
+    const fileUrl = `${process.env.BACKEND_URL}/${tenant.rentalAgreement.replace(/\\/g, "/")}`;
+
+    return res.json({ fileUrl });
+  } catch (err) {
+    console.error("❌ Rental info fetch error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 

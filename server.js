@@ -12,6 +12,13 @@ import paymentsRoutes from "./routes/payments.js";
 import path from "path";
 import http from "http";
 import { Server } from "socket.io";
+import { initWebPush } from "./utils/webpush.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import { scheduleRentReminders } from "./jobs/rentNotification.js";
+
+
+initWebPush();
+scheduleRentReminders();
 
 dotenv.config();
 const app = express();
@@ -95,6 +102,7 @@ app.use("/api/tenants", tenantRoutes);
 app.use("/api/landlord", landlordRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ✅ Static file serving
 app.use("/uploads", express.static("uploads"));
@@ -122,5 +130,5 @@ app.post("/api/auth/logout", (req, res) => {
 // ✅ Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
 });

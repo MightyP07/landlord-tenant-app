@@ -1,36 +1,57 @@
 // backend/routes/landlordRoutes.js
 import express from "express";
+import multer from "multer";
+import path from "path";
 import User from "../models/User.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
-import { getComplaints } from "../controllers/landlordController.js";
 import Complaint from "../models/Complaint.js";
 import BankDetails from "../models/BankDetails.js";
+import { verifyToken, protect, landlordOnly } from "../middleware/authMiddleware.js";
+import { getComplaints } from "../controllers/landlordController.js";
 
 const router = express.Router();
 
-// GET all complaints for this landlord
+/* ------------------- MULTER CONFIG ------------------- */
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/rental-info/"); // ✅ make sure this folder exists
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${file.fieldname}${ext}`);
+  },
+});
+const upload = multer({ storage });
+
+/* ------------------- RENTAL INFO UPLOAD ------------------- */
+// POST /api/landlord/tenants/:id/rental-info
+router.post(
+  "/tenants/:id/rental-info",
+  protect,
+  landlordOnly,
+  upload.single("rentalInfo"),
+  async (req, res) => {
+    try {
+      const tenant = await User.findById(req.params.id);
+      if (!tenant || tenant.role !== "tenant") {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+
+      tenant.rentalAgreement = req.file.path;
+      await tenant.save();
+
+      res.json({
+        message: "Rental info uploaded successfully",
+        path: req.file.path,
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+  }
+);
+
+/* ------------------- COMPLAINTS ------------------- */
 router.get("/complaints/:landlordId", getComplaints);
 
-// GET /api/landlord/tenants
-router.get("/tenants", verifyToken, async (req, res) => {
-  try {
-    // Only landlords allowed
-    if (req.user.role !== "landlord") {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    const tenants = await User.find({ landlordId: req.user._id }).select(
-      "firstName lastName email connectedOn"
-    );
-
-    res.json({ tenants });
-  } catch (err) {
-    console.error("❌ Get tenants error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// GET /api/landlords/complaints
 router.get("/complaints", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -48,27 +69,40 @@ router.get("/complaints", verifyToken, async (req, res) => {
   }
 });
 
-// DELETE /api/landlords/tenants/:tenantId
+/* ------------------- TENANTS ------------------- */
+router.get("/tenants", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== "landlord") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const tenants = await User.find({ landlordId: req.user._id }).select(
+      "firstName lastName email connectedOn"
+    );
+
+    res.json({ tenants });
+  } catch (err) {
+    console.error("❌ Get tenants error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.delete("/tenants/:tenantId", verifyToken, async (req, res) => {
   try {
-    // Only landlords allowed
     if (req.user.role !== "landlord") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const { tenantId } = req.params;
     const tenant = await User.findById(tenantId);
-
     if (!tenant) {
       return res.status(404).json({ message: "Tenant not found" });
     }
 
-    // Only remove if tenant belongs to this landlord
     if (tenant.landlordId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Tenant does not belong to you" });
     }
 
-    // Remove connection
     tenant.landlordId = null;
     await tenant.save();
 
@@ -79,7 +113,7 @@ router.delete("/tenants/:tenantId", verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/landlords/bank-details
+/* ------------------- BANK DETAILS ------------------- */
 router.post("/bank-details", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -87,7 +121,6 @@ router.post("/bank-details", verifyToken, async (req, res) => {
     }
 
     const { bankName, accountNumber, accountName } = req.body;
-
     if (!bankName || !accountNumber || !accountName) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -95,13 +128,11 @@ router.post("/bank-details", verifyToken, async (req, res) => {
     let bankDetails = await BankDetails.findOne({ landlordId: req.user._id });
 
     if (bankDetails) {
-      // Update existing
       bankDetails.bankName = bankName;
       bankDetails.accountNumber = accountNumber;
       bankDetails.accountName = accountName;
       await bankDetails.save();
     } else {
-      // Create new
       bankDetails = new BankDetails({
         landlordId: req.user._id,
         bankName,
@@ -109,9 +140,8 @@ router.post("/bank-details", verifyToken, async (req, res) => {
         accountName,
       });
       await bankDetails.save();
-      // after saving bankDetails
-await User.findByIdAndUpdate(req.user._id, { bankDetails: bankDetails._id });
 
+      await User.findByIdAndUpdate(req.user._id, { bankDetails: bankDetails._id });
     }
 
     res.json({ message: "Bank details saved successfully", bankDetails });
@@ -121,7 +151,6 @@ await User.findByIdAndUpdate(req.user._id, { bankDetails: bankDetails._id });
   }
 });
 
-// GET /api/landlords/bank-details
 router.get("/bank-details", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -129,7 +158,6 @@ router.get("/bank-details", verifyToken, async (req, res) => {
     }
 
     const bankDetails = await BankDetails.findOne({ landlordId: req.user._id });
-
     if (!bankDetails) {
       return res.status(404).json({ message: "No bank details found" });
     }
@@ -141,7 +169,7 @@ router.get("/bank-details", verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/landlord/tenants/:tenantId/set-rent
+/* ------------------- RENT MANAGEMENT ------------------- */
 router.post("/tenants/:tenantId/set-rent", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -150,7 +178,6 @@ router.post("/tenants/:tenantId/set-rent", verifyToken, async (req, res) => {
 
     const { tenantId } = req.params;
     const { amount } = req.body;
-
     if (!amount || isNaN(amount)) {
       return res.status(400).json({ message: "Invalid rent amount" });
     }
@@ -158,12 +185,10 @@ router.post("/tenants/:tenantId/set-rent", verifyToken, async (req, res) => {
     const tenant = await User.findById(tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
 
-    // Ensure tenant belongs to landlord
     if (tenant.landlordId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Tenant does not belong to you" });
     }
 
-     // ✅ Add 3% service fee
     const serviceFee = Math.round(amount * 0.03);
     const totalAmount = amount + serviceFee;
 
@@ -183,7 +208,6 @@ router.post("/tenants/:tenantId/set-rent", verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/landlord/tenants/:tenantId/remind-rent
 router.post("/tenants/:tenantId/remind-rent", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -194,12 +218,10 @@ router.post("/tenants/:tenantId/remind-rent", verifyToken, async (req, res) => {
     const tenant = await User.findById(tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
 
-    // Ensure tenant belongs to landlord
     if (tenant.landlordId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Tenant does not belong to you" });
     }
 
-    // Here you could later integrate push/email notification
     console.log(`Reminder: Rent due for tenant ${tenant.firstName} ${tenant.lastName}`);
 
     res.json({ message: "Reminder sent successfully" });
@@ -209,7 +231,6 @@ router.post("/tenants/:tenantId/remind-rent", verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/landlords/tenants/:tenantId/trigger-alarm
 router.post("/tenants/:tenantId/trigger-alarm", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "landlord") {
@@ -220,7 +241,6 @@ router.post("/tenants/:tenantId/trigger-alarm", verifyToken, async (req, res) =>
     const tenant = await User.findById(tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
 
-    // Ensure tenant belongs to landlord
     if (tenant.landlordId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Tenant does not belong to you" });
     }
@@ -229,7 +249,6 @@ router.post("/tenants/:tenantId/trigger-alarm", verifyToken, async (req, res) =>
       return res.json({ message: "✅ Tenant has no pending rent." });
     }
 
-    // Here you can later integrate push/email notification or WebSocket message
     console.log(`Reminder/Alarm: Rent due for tenant ${tenant.firstName} ${tenant.lastName}`);
 
     res.json({
@@ -241,6 +260,5 @@ router.post("/tenants/:tenantId/trigger-alarm", verifyToken, async (req, res) =>
     res.status(500).json({ message: "Server error triggering alarm" });
   }
 });
-
 
 export default router;
